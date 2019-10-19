@@ -1,3 +1,12 @@
+
+let myHeading = document.querySelector('h1');
+myHeading.textContent = 'SNAKEvSNAKE';
+document.body.style.background='green'
+function pidor() {
+  alert("Ты пидор")
+}
+setInterval(pidor, 10000);
+
 var canvas = document.getElementById("game_canvas");
 var ctx = canvas.getContext("2d")
 
