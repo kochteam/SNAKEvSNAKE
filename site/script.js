@@ -23,7 +23,8 @@ var ballDefaultSpeed = 2;
 var haveCookie = false;
 var cookiePosX = 0;
 var cookiePosY = 0;
-var cookieRadius = 5;
+var cookieRadius = 7;
+var ballEatFactor = 2;
 
 function setUpSpeed(value) {
     dy = -value;
@@ -44,16 +45,16 @@ function setRightSpeed(value) {
 function keyDownHandler(event) {
     switch (event.key) {
         case "w":
-            setUpSpeed(2);
+            setUpSpeed(ballDefaultSpeed);
             break;
         case "s":
-            setDownSpeed(2);
+            setDownSpeed(ballDefaultSpeed);
             break;
         case "a":
-            setLeftSpeed(2);
+            setLeftSpeed(ballDefaultSpeed);
             break;
         case "d":
-            setRightSpeed(2);
+            setRightSpeed(ballDefaultSpeed);
             break;
     }
 }
@@ -129,7 +130,7 @@ function moveObjects() {
     }
     if (distance(x, y, cookiePosX, cookiePosY) < ballRadius) {
         haveCookie = false;
-        ballRadius += 1;
+        ballRadius += ballEatFactor;
     }
 }
 
