@@ -12,10 +12,13 @@ var defaultPosX = winWidth / 2;
 var defaultPosY = winHeight / 2;
 var defaultDirX = 1;
 var defaultDirY = 0;
-var defaultColor = "7d746d";  //grey
-var cookieDefaultColor = "f3da0b"; //yellow
+var defaultColor = "grey";  //grey
+var cookieDefaultColor = "orange"; //yellow
+var obstacleDefaultColor = "red" //red
 var defaultSize = 25;
-var defaultSpeed = 300;
+var defaultSpeed = 0;
+var maxForwardSpeed = 200;
+var minForwardSpeed = -100;
 var inputDefaultSpeed = 200;
 var inputDefaultRotation = 1;
 
@@ -61,6 +64,46 @@ function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min)) + min;
 }
 
+function getRandomVector(leftUpper, rightLower) {
+    return new vector(getRandomInt(leftUpper.x, rightLower.x), getRandomInt(leftUpper.y, rightLower.y));
+}
+
+var leftUpper = new vector(0, 0);
+var rightLower = new vector(winWidth, winHeight);
+
+function getRandomPos() {
+    return getRandomVector(leftUpper, rightLower);
+}
+
+function circularObstacle(pos, size) {
+    this.pos = pos;
+    this.size = size;
+    this.color = obstacleDefaultColor;
+
+    this.draw = function() {
+        drawCircle(this.pos, this.size, this.color);
+    }
+    this.checkCollision = function(pos, radius) {
+        return this.pos.sub(pos).len() < this.size + radius;
+    }
+}
+
+function lineObstacle(pos, dir, width) {
+    this.pos = pos;
+    this.dir = dir;
+    this.width = width;
+    this.color = obstacleDefaultColor;
+
+    this.draw = function() {
+        drawLine(this.pos.sub(this.dir), this.pos.add(this.dir), this.color);
+    }
+    this.checkCollision = function(pos, radius) {
+        return (this.dir.x > 0) && (Math.abs(this.pos.y - pos.y) < radius + this.width) && (Math.abs(this.pos.x - pos.x) < this.dir.x) ||
+               (this.dir.y > 0) && (Math.abs(this.pos.x - pos.x) < radius + this.width) && (Math.abs(this.pos.y - pos.y) < this.dir.y);
+    }
+}
+
+
 function basicShip() {
     this.pos = new vector(defaultPosX, defaultPosY);
     this.dir = new vector(defaultDirX, defaultDirY);
@@ -68,8 +111,14 @@ function basicShip() {
     this.color = defaultColor;
     this.forwardSpeed = defaultSpeed;
     this.size = defaultSize;
+
     this.accelerate = function(deltaTime) {
         this.forwardSpeed += dy * deltaTime;
+        if (this.forwardSpeed > maxForwardSpeed) {
+            this.forwardSpeed = maxForwardSpeed;
+        } else if (this.forwardSpeed < minForwardSpeed) {
+            this.forwardSpeed = minForwardSpeed;
+        }
         this.dir = this.dir.rotate(dx * deltaTime);
     }
     this.move = function(deltaTime) {
@@ -107,6 +156,11 @@ function cookie() {
     }
 }
 
+var objectList = [new circularObstacle(getRandomPos(), getRandomInt(10, 20)),
+                  new circularObstacle(getRandomPos(), getRandomInt(10, 20)),
+                  new circularObstacle(getRandomPos(), getRandomInt(10, 20)),
+                  new lineObstacle(getRandomPos(), new vector(getRandomInt (50, 100), 0), 10),
+                  new lineObstacle(getRandomPos(), new vector(0, getRandomInt(50, 100)), 10)]
 var playerShip = new basicShip();
 var haveCookie = false;
 var cookieSingleton = new cookie();
@@ -163,19 +217,39 @@ function keyUpHandler(event) {
     }
 }
 
+function drawGui(pts) {
+    str = "Points: ".concat(pts);
+    ctx.font = "30 px";7
+    ctx.fillStyle = "black"
+    ctx.fillText(str, 10, 10);
+}
+
 function draw() {
     ctx.clearRect(0,0, canvas.width, canvas.height);
     playerShip.draw();
     cookieSingleton.draw();
+    objectList.forEach(function(obj, idx, array) {
+        obj.draw();
+    });
+    drawGui(playerShip.size - defaultSize);
 }
 
 function moveObjects() {
     cookieSingleton.respawn();
     playerShip.move(1/desiredFps);
-    if(playerShip.pos.sub(cookieSingleton.pos).len() < playerShip.size) {
+    if(playerShip.pos.sub(cookieSingleton.pos).len() < playerShip.size + cookieSingleton.size) {
         playerShip.eat(cookieSingleton.size);
         cookieSingleton.die();
     }
+    objectList.forEach(function(obj, idx, array) {
+        if (obj.checkCollision(playerShip.pos, playerShip.size)) {
+            if (playerShip.size > 5) {
+                playerShip.size -= 5;
+            } else {
+                playerShip.size = 1;
+            }
+        }
+    });
 }
 
 function gameLoop() {
