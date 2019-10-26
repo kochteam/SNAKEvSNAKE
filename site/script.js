@@ -60,6 +60,14 @@ function drawCircle(pos, radius, color) {
     ctx.closePath();
 }
 
+function drawLine(pos1, pos2) {
+    ctx.beginPath();
+    ctx.moveTo(pos1.x, pos1.y);
+    ctx.lineTo(pos2.x, pos2.y);
+    ctx.stroke();
+    ctx.closePath();
+}
+
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min)) + min;
 }
