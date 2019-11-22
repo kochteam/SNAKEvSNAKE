@@ -4,7 +4,7 @@ var ctx = canvas.getContext("2d");
 var desiredFps = 240;
 var winWidth = window.innerWidth * 0.9;
 var winHeight = window.innerHeight * 0.9;
-
+var topLeftCorner = canvas.getBoundingClientRect();
 
 ctx.canvas.width = winWidth;
 ctx.canvas.height = winHeight;
@@ -20,11 +20,13 @@ var defaultSpeed = 0;
 var maxForwardSpeed = 200;
 var minForwardSpeed = -100;
 var inputDefaultSpeed = 200;
-var inputDefaultRotation = 1;
+var inputDefaultRotation = 1.5;
 var deccelerateCoeff = 2 * maxForwardSpeed;
 
 document.addEventListener("keydown", keyDownHandler, false);
 document.addEventListener("keyup", keyUpHandler, false);
+document.addEventListener("mousemove", mouseMoveHandler);
+document.addEventListener("mousedown", mouseDownHandler);
 
 function vector(x, y) {
     this.x = x;
@@ -98,9 +100,11 @@ function circularObstacle(pos, size) {
     this.draw = function() {
         drawCircle(this.pos, this.size, this.color);
     }
+
     this.checkCollision = function(pos, radius) {
         return this.pos.sub(pos).len() < this.size + radius;
     }
+
     this.actOnCollision = bounceOnCollision;
 }
 
@@ -113,10 +117,12 @@ function lineObstacle(pos, dir, width) {
     this.draw = function() {
         drawLine(this.pos.sub(this.dir), this.pos.add(this.dir), this.color);
     }
+
     this.checkCollision = function(pos, radius) {
         return (this.dir.x > 0) && (Math.abs(this.pos.y - pos.y) < radius + this.width) && (Math.abs(this.pos.x - pos.x) < this.dir.x) ||
                (this.dir.y > 0) && (Math.abs(this.pos.x - pos.x) < radius + this.width) && (Math.abs(this.pos.y - pos.y) < this.dir.y);
     }
+
     this.actOnCollision = bounceOnCollision;
 }
 
@@ -127,11 +133,13 @@ function worldBorder() {
         new lineObstacle(new vector(1, winHeight-1), new vector(0, winHeight), 10),
         new lineObstacle(new vector(1, 1), new vector(winWidth, 0), 10),
         new lineObstacle(new vector(1, winHeight-1), new vector(winWidth, 0), 10)];
+
     this.draw = function() {
         this.wallList.forEach(function(obj, idx, array) {
             obj.draw();
         });
     }
+
     this.checkCollision = function(pos, radius) {
         var ret = false;
         this.wallList.forEach(function(obj, idx, array) {
@@ -139,7 +147,42 @@ function worldBorder() {
         });
         return ret;
     }
+
     this.actOnCollision = bounceOnCollision;
+}
+
+function projectile(power, speed, direction) {
+    this.power = power;
+    this.speed = speed;
+    this.direction = new Vector(direction.x, direction.y);
+
+    this.move = function(deltaTime) {
+      
+    }
+    this.checkCollision = function(position, radius) {
+
+    }
+}
+
+function emitProjectile(power, speed, direction) {
+    var projectile = new projectile(power, speed, direction);
+
+}
+
+function basicGun() {
+    this.projectilePower = defaultGunPower;
+    this.projectileSpeed = defaultGunProjectileSpeed;
+    this.direction = new vector(defaultDirX, defaultDirY);
+    this.direction.normalize();
+    this.rotationSpeed = defaultGunRotationSpeed;
+
+    this.shoot = function() {
+        emitProjectile(this.projectilePower, this.projectileSpeed, this.direction);
+    }
+
+    this.rotateTo = function(dest) {
+
+    }
 }
 
 function basicShip() {
@@ -149,6 +192,7 @@ function basicShip() {
     this.color = defaultColor;
     this.forwardSpeed = defaultSpeed;
     this.size = defaultSize;
+    this.gun = new defaultPlayerGun();
 
     this.accelerate = function(deltaTime) {
         this.forwardSpeed += dy * deltaTime;
@@ -161,13 +205,21 @@ function basicShip() {
         var coeffitient = this.forwardSpeed / maxForwardSpeed;
         this.dir = this.dir.rotate(dx * deltaTime * coeffitient);
     }
+
     this.move = function(deltaTime) {
         this.accelerate(deltaTime);
         this.pos = this.pos.add(this.dir.mul(this.forwardSpeed * deltaTime));
+        this.gun.rotateTo(clientMousePos);
     }
+
+    this.shoot = function() {
+        this.gun.shoot();
+    }
+
     this.eat = function(deltaSize) {
         this.size += deltaSize;
     }
+
     this.draw = function() {
         drawCircle(this.pos.add(this.dir.mul(this.size)), this.size * 0.7, this.color);
         drawCircle(this.pos, this.size, this.color);
@@ -185,18 +237,22 @@ function cookie() {
         this.color = cookieDefaultColor;
         haveCookie = true;
     }
+
     this.die = function() {
         haveCookie = false;
     }
+
     this.draw = function() {
           if (!haveCookie) {
               return;
           }
           drawCircle(this.pos, this.size * 5, this.color);
     }
+
     this.checkCollision = function(pos, radius) {
         return this.pos.sub(pos).len() < this.size + radius;
     }
+
     this.actOnCollision = function(ship) {
         this.die();
         ship.eat(this.size);
@@ -216,6 +272,8 @@ var haveCookie = false;
 var dx = 0;
 var dy = 0;
 
+var clientMousePos = new vector(defaultPosX, defaultPosY);
+
 function setUpSpeed(value) {
     dy = value;
 }
@@ -232,6 +290,10 @@ function setRightSpeed(value) {
     dx = value;
 }
 
+function processShotInput() {
+    playerShip.shoot();
+}
+
 function keyDownHandler(event) {
     switch (event.key) {
         case "w":
@@ -246,6 +308,8 @@ function keyDownHandler(event) {
         case "d":
             setRightSpeed(inputDefaultRotation);
             break;
+        case "space":
+            processShotInput();
     }
 }
 
@@ -264,6 +328,15 @@ function keyUpHandler(event) {
             setRightSpeed(0);
             break;
     }
+}
+
+function mouseMoveHandler(event) {
+    clientMousePos.x = event.clientX - topLeftCorner.left;
+    clientMousePos.y = event.clientY - topLeftCorner.top;
+}
+
+function mouseDownHandler(event) {
+    processShotInput();
 }
 
 function drawGui(pts) {
