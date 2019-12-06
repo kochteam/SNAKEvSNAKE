@@ -14,13 +14,18 @@ var defaultDirX = 1;
 var defaultDirY = 0;
 var defaultColor = "grey";  //grey
 var cookieDefaultColor = "orange"; //yellow
-var obstacleDefaultColor = "red" //red
+var obstacleDefaultColor = "red"; //red
+var projectileDefaultColor = "red"; //red
 var defaultSize = 25;
+var defaultProjectileSize = 5;
+var defaultGunPower = defaultProjectileSize;
 var defaultSpeed = 0;
+var defaultGunProjectileSpeed = 400;
 var maxForwardSpeed = 200;
 var minForwardSpeed = -100;
 var inputDefaultSpeed = 200;
 var inputDefaultRotation = 1.5;
+var defaultGunRotationSpeed = 2;
 var deccelerateCoeff = 2 * maxForwardSpeed;
 
 document.addEventListener("keydown", keyDownHandler, false);
@@ -92,6 +97,10 @@ function bounceOnCollision(ship) {
     ship.forwardSpeed = Math.max(minForwardSpeed, -ship.forwardSpeed);
 }
 
+function stayStill(deltaTIme) {
+    return;
+}
+
 function circularObstacle(pos, size) {
     this.pos = pos;
     this.size = size;
@@ -106,6 +115,7 @@ function circularObstacle(pos, size) {
     }
 
     this.actOnCollision = bounceOnCollision;
+    this.move = stayStill;
 }
 
 function lineObstacle(pos, dir, width) {
@@ -124,6 +134,7 @@ function lineObstacle(pos, dir, width) {
     }
 
     this.actOnCollision = bounceOnCollision;
+    this.move = stayStill;
 }
 
 function worldBorder() {
@@ -149,39 +160,58 @@ function worldBorder() {
     }
 
     this.actOnCollision = bounceOnCollision;
+    this.move = stayStill;
 }
 
-function projectile(power, speed, direction) {
+function projectile(power, speed, dir, pos) {
     this.power = power;
     this.speed = speed;
-    this.direction = new Vector(direction.x, direction.y);
+    this.dir = new vector(dir.x, dir.y);
+    this.pos = new vector(pos.x, pos.y);
+    this.color = projectileDefaultColor;
+
+    this.draw = function() {
+        drawCircle(this.pos, defaultProjectileSize, this.color);
+    }
 
     this.move = function(deltaTime) {
-      
+        this.pos = this.pos.add(this.dir.mul(this.speed * deltaTime));
     }
-    this.checkCollision = function(position, radius) {
+
+    this.checkCollision = function(pos, radius) {
+        return this.pos.sub(pos).len() < this.size + radius;
+    }
+
+    this.actOnCollision = function(ship) {
 
     }
 }
 
-function emitProjectile(power, speed, direction) {
-    var projectile = new projectile(power, speed, direction);
-
+function emitProjectile(power, speed, dir, pos) {
+    var prj = new projectile(power, speed, dir, pos);
+    objectList.push(prj);
 }
 
-function basicGun() {
+function basicGun(pos) {
     this.projectilePower = defaultGunPower;
     this.projectileSpeed = defaultGunProjectileSpeed;
-    this.direction = new vector(defaultDirX, defaultDirY);
-    this.direction.normalize();
+    this.dir = new vector(defaultDirX, defaultDirY);
+    this.dir.normalize();
     this.rotationSpeed = defaultGunRotationSpeed;
+    this.pos = pos;
 
     this.shoot = function() {
-        emitProjectile(this.projectilePower, this.projectileSpeed, this.direction);
+        emitProjectile(this.projectilePower, this.projectileSpeed, this.dir, this.pos);
     }
 
-    this.rotateTo = function(dest) {
+    this.rotateTo = function(dest, deltaTime) {
+        destVec = dest.sub(this.pos);
+        var rotateLeft = destVec.x*this.dir.y - destVec.y*this.dir.x < 0;
+        this.dir = this.dir.rotate((rotateLeft ? this.rotationSpeed : -this.rotationSpeed) * deltaTime);
+    }
 
+    this.followPos = function(pos) {
+        this.pos = pos;
     }
 }
 
@@ -192,7 +222,7 @@ function basicShip() {
     this.color = defaultColor;
     this.forwardSpeed = defaultSpeed;
     this.size = defaultSize;
-    this.gun = new defaultPlayerGun();
+    this.gun = new basicGun(this.pos);
 
     this.accelerate = function(deltaTime) {
         this.forwardSpeed += dy * deltaTime;
@@ -209,7 +239,8 @@ function basicShip() {
     this.move = function(deltaTime) {
         this.accelerate(deltaTime);
         this.pos = this.pos.add(this.dir.mul(this.forwardSpeed * deltaTime));
-        this.gun.rotateTo(clientMousePos);
+        this.gun.followPos(this.pos);
+        this.gun.rotateTo(clientMousePos, deltaTime);
     }
 
     this.shoot = function() {
@@ -224,6 +255,9 @@ function basicShip() {
         drawCircle(this.pos.add(this.dir.mul(this.size)), this.size * 0.7, this.color);
         drawCircle(this.pos, this.size, this.color);
         drawCircle(this.pos.sub(this.dir.mul(this.size)), this.size * 0.8, this.color);
+    }
+    this.checkCollision = function(pos, size) {
+        return false;
     }
 }
 
@@ -257,17 +291,20 @@ function cookie() {
         this.die();
         ship.eat(this.size);
     }
+    this.move = stayStill;
 }
 
 var cookieSingleton = new cookie();
+var playerShip = new basicShip();
 var objectList = [new circularObstacle(getRandomPos(), getRandomInt(10, 20)),
                   new circularObstacle(getRandomPos(), getRandomInt(10, 20)),
                   new circularObstacle(getRandomPos(), getRandomInt(10, 20)),
                   new lineObstacle(getRandomPos(), new vector(getRandomInt (50, 100), 0), 10),
                   new lineObstacle(getRandomPos(), new vector(0, getRandomInt(50, 100)), 10),
                   new worldBorder(),
+                  playerShip,
                   cookieSingleton];
-var playerShip = new basicShip();
+
 var haveCookie = false;
 var dx = 0;
 var dy = 0;
@@ -331,8 +368,8 @@ function keyUpHandler(event) {
 }
 
 function mouseMoveHandler(event) {
-    clientMousePos.x = event.clientX - topLeftCorner.left;
-    clientMousePos.y = event.clientY - topLeftCorner.top;
+    clientMousePos.x = (event.clientX - topLeftCorner.left) / (topLeftCorner.right - topLeftCorner.left) * canvas.width;
+    clientMousePos.y = (event.clientY - topLeftCorner.top) / (topLeftCorner.bottom - topLeftCorner.top) * canvas.height;
 }
 
 function mouseDownHandler(event) {
@@ -358,8 +395,9 @@ function draw() {
 
 function moveObjects() {
     cookieSingleton.respawn();
-    playerShip.move(1/desiredFps);
-
+    objectList.forEach(function(obj, idx, array) {
+        obj.move(1/desiredFps);
+    });
     objectList.forEach(function(obj, idx, array) {
         if (obj.checkCollision(playerShip.pos, playerShip.size)) {
             obj.actOnCollision(playerShip);
