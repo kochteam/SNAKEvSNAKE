@@ -16,8 +16,10 @@ var defaultColor = "grey";  //grey
 var cookieDefaultColor = "orange"; //yellow
 var obstacleDefaultColor = "red"; //red
 var projectileDefaultColor = "red"; //red
+var defaultGunColor = "black";
 var defaultSize = 25;
 var defaultProjectileSize = 5;
+var defaultGunLength = 20;
 var defaultGunPower = defaultProjectileSize;
 var defaultSpeed = 0;
 var defaultGunProjectileSpeed = 400;
@@ -68,10 +70,11 @@ function drawCircle(pos, radius, color) {
     ctx.closePath();
 }
 
-function drawLine(pos1, pos2) {
+function drawLine(pos1, pos2, color) {
     ctx.beginPath();
     ctx.moveTo(pos1.x, pos1.y);
     ctx.lineTo(pos2.x, pos2.y);
+    ctx.strokeStyle = color;
     ctx.stroke();
     ctx.closePath();
 }
@@ -199,19 +202,24 @@ function basicGun(pos) {
     this.dir.normalize();
     this.rotationSpeed = defaultGunRotationSpeed;
     this.pos = pos;
+    this.length = defaultGunLength;
 
     this.shoot = function() {
         emitProjectile(this.projectilePower, this.projectileSpeed, this.dir, this.pos);
     }
 
     this.rotateTo = function(dest, deltaTime) {
-        destVec = dest.sub(this.pos);
+        destVec = dest.sub(this.pos).normalize();
         var rotateLeft = destVec.x*this.dir.y - destVec.y*this.dir.x < 0;
         this.dir = this.dir.rotate((rotateLeft ? this.rotationSpeed : -this.rotationSpeed) * deltaTime);
     }
 
     this.followPos = function(pos) {
         this.pos = pos;
+    }
+
+    this.draw = function() {
+        drawLine(this.pos, this.pos.add(this.dir.mul(this.length)), defaultGunColor);
     }
 }
 
@@ -255,6 +263,7 @@ function basicShip() {
         drawCircle(this.pos.add(this.dir.mul(this.size)), this.size * 0.7, this.color);
         drawCircle(this.pos, this.size, this.color);
         drawCircle(this.pos.sub(this.dir.mul(this.size)), this.size * 0.8, this.color);
+        this.gun.draw();
     }
     this.checkCollision = function(pos, size) {
         return false;
@@ -368,8 +377,8 @@ function keyUpHandler(event) {
 }
 
 function mouseMoveHandler(event) {
-    clientMousePos.x = (event.clientX - topLeftCorner.left) / (topLeftCorner.right - topLeftCorner.left) * canvas.width;
-    clientMousePos.y = (event.clientY - topLeftCorner.top) / (topLeftCorner.bottom - topLeftCorner.top) * canvas.height;
+    clientMousePos.x = /*(event.clientX - topLeftCorner.left) / (topLeftCorner.right - topLeftCorner.left) * canvas.width*/event.offsetX;
+    clientMousePos.y = /*(event.clientY - topLeftCorner.top) / (topLeftCorner.bottom - topLeftCorner.top) * canvas.height*/event.offsetY;
 }
 
 function mouseDownHandler(event) {
