@@ -205,7 +205,8 @@ function basicGun(pos) {
     this.length = defaultGunLength;
 
     this.shoot = function() {
-        emitProjectile(this.projectilePower, this.projectileSpeed, this.dir, this.pos);
+        emitProjectile(this.projectilePower, this.projectileSpeed, this.dir,
+                       this.pos.add(this.dir.mul(this.length * 2)));
     }
 
     this.rotateTo = function(dest, deltaTime) {
@@ -377,8 +378,8 @@ function keyUpHandler(event) {
 }
 
 function mouseMoveHandler(event) {
-    clientMousePos.x = /*(event.clientX - topLeftCorner.left) / (topLeftCorner.right - topLeftCorner.left) * canvas.width*/event.offsetX;
-    clientMousePos.y = /*(event.clientY - topLeftCorner.top) / (topLeftCorner.bottom - topLeftCorner.top) * canvas.height*/event.offsetY;
+    clientMousePos.x = event.offsetX;
+    clientMousePos.y = event.offsetY;
 }
 
 function mouseDownHandler(event) {
